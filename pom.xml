@@ -7,6 +7,9 @@
     <groupId>dco</groupId>
     <artifactId>dcohandleservice</artifactId>
     <version>1.0</version>
+    <packaging>war</packaging>
+    <name>dcohandleservice-servlet Maven Webapp</name>
+    <url>http://maven.apache.org</url>
     <repositories>
         <repository>
             <id>biordf.net</id>
@@ -121,14 +124,21 @@
             <version>1.7.7</version>
         </dependency>
         <dependency>
-            <groupId>com.google.code.gson</groupId>
-            <artifactId>gson</artifactId>
-            <version>2.2.4</version>
-        </dependency>
-        <dependency>
             <groupId>net.handle</groupId>
             <artifactId>hdllib</artifactId>
             <version>7.3.1</version>
         </dependency>
     </dependencies>
+  <build>
+    <finalName>dcohandleservice</finalName>
+    <plugins>
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <source>1.7</source>
+          <target>1.7</target>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
 </project>
