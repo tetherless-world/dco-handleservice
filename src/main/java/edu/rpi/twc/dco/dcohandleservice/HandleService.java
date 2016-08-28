@@ -30,6 +30,9 @@ import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
@@ -47,15 +50,14 @@ import com.sun.jersey.spi.resource.Singleton;
 @Singleton
 public class HandleService {
 
+	static final Log log = LogFactory.getLog(HandleService.class );
+
     // The private key is used by the handle server to verify the
     // use of the handle server
 	File privateKeyFile;
 
     // The domain of the handle, everything before 11121.
 	String domainPrefix;
-
-    // Do we debug or not
-	boolean debug;
 
     // The email account name we use to send emails. Since we're using rpi
     // email service this has to be an rpi email address
@@ -100,64 +102,50 @@ public class HandleService {
 			prop.load(inputStream);
 			
 		} catch (IOException e) {
+			log.error("Failed to load config.properties " + e.getMessage());
 			this.sendEmailRPI("[DCOID] Configuration file missing", "Expected config.properties");
+			throw new IllegalStateException( "Loading properties failed " + e.getMessage() );
 		}
 		
         // Location of the handle server private key
 		privateKeyFile = new File(prop.getProperty("privateKeyFile"));
+		if(!privateKeyFile.exists()) {
+			log.error("private key file " + prop.getProperty("privateKeyFile") + " is missing");
+			this.sendEmailRPI("[DCOID] private key file missing", "Expected " + prop.getProperty("privateKeyFile"));
+			throw new IllegalStateException( "Loading private key file failed");
+		}
 		//privateKeyFile = new File("/Users/cheny/Downloads/admpriv.bin");
 		//  /usr/share/tomcat6/work/dcohandleservice/admpriv.bin
 		
         // DCO domain prefix of all handles
 		domainPrefix = prop.getProperty("domainPrefix");
+		log.info("domainPrefix = " + domainPrefix);
 		
 		//Agent email account, password and address for the admin
 		serviceEmailAccount = prop.getProperty("serviceEmailAccount");
+		log.info("serviceEmailAccount = " + serviceEmailAccount);
 
         // This password is set prior to building the software
 		serviceEmailPw = prop.getProperty("serviceEmailPw");
 
         // email address of the email account we use
 		serviceEmailAddress = prop.getProperty("serviceEmailAddress");
-		
+		log.info("serviceEmailAddress = " + serviceEmailAddress);
+
 		// Reply email address
 		replyEmailAddress = prop.getProperty("replyEmailAddress");
-		
+		log.info("replyEmailAddress = " + replyEmailAddress);
+
 		// Passphrase for interacting with 
 		passphrase = prop.getProperty("passphrase");
-		
+
 		// Admin emails
 		adminEmails = new ArrayList<String>(Arrays.asList(prop.getProperty("adminEmails").split(",")));
-		
+		log.info("adminEmails = " + adminEmails.toString());
+
 		// IP Filters
 		IPFilters = new ArrayList<String>(Arrays.asList(prop.getProperty("IPFilters").split(",")));
-		
-		//Verbose message on/off
-		debug = true;
-	}
-	
-	/**
-	 * Print regular info to standard out.
-     *
-     * Being a Apache Tomcat Webapp, this information is sent to the
-     * tomcat log file catalina.out, line has prefix [INFO]
-     *
-	 * @param msg message to print
-	 */
-	public void printInfo(String msg){
-		System.out.println("[INFO] "+msg);
-	}
-
-	/**
-	 * Print error info to standard out.
-     *
-     * Being a Apache Tomcat Webapp, this information is sent to the
-     * tomct log file catalina.out, line has prefix [ERROR]
-     *
-	 * @param msg message to print
-	 */
-	public void printError(String msg){
-		System.out.println("[ERROR]"+msg);
+		log.info("IPFilters = " + IPFilters.toString());
 	}
 	
 	private AuthenticationInfo getAuthInfo(){
@@ -175,6 +163,7 @@ public class HandleService {
 			myAuthInfo = new PublicKeyAuthenticationInfo(userIDHandle,300,privateKey);
 			
 		}catch(Exception e){
+			log.error("Failed to authenticate with the handle service " + e.getMessage());
 			this.sendEmailRPI("[DCOID] Failed to authenticate", "Please check passphrase and key file etc");
 		}
 		
@@ -243,8 +232,7 @@ public class HandleService {
 		    props.put("mail.smtp.host", host);
 		    props.put("mail.smtp.port", "587");
 		    props.put("mail.smtp.auth", "true");
-		    props.put("mail.debug", debug);
-		
+
 		    Session session = Session.getInstance(props, new MailAuthenticator(this.serviceEmailAccount,this.serviceEmailPw));
 		    MimeMessage message = new MimeMessage(session);
 		    Address fromAddress = new InternetAddress(this.serviceEmailAddress);
@@ -264,7 +252,7 @@ public class HandleService {
 		    transport.close();
 		    status = "email done";
 	    }catch(Exception ex){
-	    	if(debug) printError("Sending email error:"+ex.toString());
+	    	log.error("Sending email error:"+ex.getMessage());
 	    	status = "email fail";
 	    }finally{
 	    	return status;
@@ -286,13 +274,13 @@ public class HandleService {
 	public boolean checkIPAddress(String IPAddr){
         // FIXME: This should be part of the configuration file. An
         // array of acceptible IP addresses.
-		printInfo(IPAddr);
+		log.info("checking IP Address " + IPAddr);
 		for(int i=0;i<IPFilters.size();i++){
 			if(IPAddr.startsWith(IPFilters.get(i)))
 				return true;
 		}
+		log.error("IP Address " + IPAddr + " is not allowed");
 		return false;
-		
 	}
 	
 	/**
@@ -343,8 +331,8 @@ public class HandleService {
 			return outputFile;
 			
 		} catch (Exception e) {
-			sendEmailRPI("[DCOHandleService] Creating XML response file failed","Failed to create XML file...");
-			e.printStackTrace();
+			log.error("Creating XML response file failed " + e.getMessage());
+			sendEmailRPI("[DCOHandleService] Creating XML response file failed","Failed to create XML file..." + e.getMessage());
 		}
  
 		return null;
@@ -411,7 +399,7 @@ public class HandleService {
 		}
 		
         String requestHandleString = requestedHandle.getId().replace('.', '/');
-        if(debug) printInfo("The requested handle is "+requestHandleString);
+        log.info("The requested handle is "+requestHandleString);
 		try{
             // getHandle pulls back the information for the handle
 			HandleValue[] indicator = this.getHandle(requestHandleString);
@@ -426,6 +414,7 @@ public class HandleService {
 			}
 			
 		}catch(Exception e){
+			log.error("Error in resolving handle " + requestHandleString + " " + e.getMessage());
 			sendEmailRPI("[DCOHandleSerivce] Error in resolving handle" + requestHandleString, e.toString());
 		}
 		
@@ -465,7 +454,7 @@ public class HandleService {
 			
 		} catch (Exception ex) {
 			// TODO Auto-generated catch-block stub.
-			ex.printStackTrace();
+			log.error("Failed to get the list of all handles " + ex.getMessage());
 		}
 		
 		return allHandles;
@@ -485,8 +474,8 @@ public class HandleService {
 		public void handleResponse(AbstractResponse arg0)
 				throws HandleException {
 			//This function handles the continuous response after sending post request
-			if(debug) printInfo("Response bounce back");
-			if(debug) printInfo(arg0.messageBody.toString());
+			log.info("Response bounce back");
+			log.info(arg0.messageBody.toString());
 		}
 		
 	}
@@ -505,7 +494,8 @@ public class HandleService {
 	@Produces("application/xml")
 	@Consumes("application/xml")
 	public File createHandle(handle myHandle,@Context HttpServletRequest req){
-		
+
+		log.info("creating handle " + myHandle.toString());
 		File handleFile = null;
 
         // Make sure the request is made from an approved IP address
@@ -523,9 +513,10 @@ public class HandleService {
 				return this.createXML("NULL", "NULL");
 			}
 			//Encapsulate the results into xml
-			if(debug) printInfo("handleID "+handleID+" handleValue "+myHandle.getValue());
+			log.info("handleID "+handleID+" handleValue "+myHandle.getValue());
 			handleFile = this.createXML(domainPrefix+handleID, myHandle.getValue());
 		}catch(Exception e){
+			log.error("Failed to create handle " + myHandle.toString() + " " + e.getMessage());
 			sendEmailRPI("[DCOHandleSerivce]Create DCOID Error", e.toString());
 		}
 		
@@ -542,8 +533,10 @@ public class HandleService {
 	 * @param handleValue value to be requested
 	 * @return String message to show if the DCO-ID has been created successfully
 	 */
-	public String registerHandle(String handleID,String handleType,String handleValue){
-		
+	public String registerHandle(String handleID,String handleType,String handleValue) {
+
+		log.info("Registering handle " + handleID + " " + handleType + " " + handleValue);
+
         // the handle being registered
 		byte[] myHandle=Util.encodeString(handleID);
 		
@@ -565,6 +558,7 @@ public class HandleService {
             // type URL, and the URL the handle resolves to.
 			CreateHandleRequest request = new CreateHandleRequest(myHandle,myResourceObjectList,this.getAuthInfo());
 			if(request==null){
+				log.error("Failed to register the handle " + handleID);
 				sendEmailRPI("[DCOHandleService] Failed to register the handle " + handleID, "Register Handle Error");
 				return "failed";
 			}
@@ -572,20 +566,21 @@ public class HandleService {
 			
             // make the request to the handle server
 			AbstractResponse response = resolver.processRequest(request);
-			if(debug) printInfo("The response code is "+response.responseCode+" While success is "+AbstractMessage.RC_SUCCESS);
+			log.info("The response code is "+response.responseCode+" While success is "+AbstractMessage.RC_SUCCESS);
 			// if the response value matches the enum for success, then return success. 
 			if(response.responseCode==AbstractMessage.RC_SUCCESS){
-				if(debug) printInfo("Registry successful");
+				log.info("Registry successful");
 				return "handle has been successfully created"+"With key"+handleID+" and value "+handleValue;
 			}else{
+				log.error("Failed to register the handle " + handleID + ", response code " + response.responseCode);
 				sendEmailRPI("[DCOHandleService] Failed to register the handle " + handleID, "Register Handle Error");
 				return "failed";
 			}
 			
 		} catch (Exception exception1) {
-			// send email to admins if anything happens. 
+			// send email to admins if anything happens.
+			log.error("Failed to register the handle " + handleID);
 			sendEmailRPI("[DCOHandleService] Failed to register the handle " + handleID, "Register Handle Error");
-			exception1.printStackTrace();
 		}
 		
 		return "failed";
@@ -616,7 +611,7 @@ public class HandleService {
 				
 				 values=((ResolutionResponse)response).getHandleValues();
 				for(int i=0;i<values.length;i++){
-					if(debug) System.out.println(String.valueOf(values[i]));
+					log.info(String.valueOf(values[i]));
 					handleRecord = handleRecord + String.valueOf(values[i]);
 				}
 				
@@ -625,8 +620,8 @@ public class HandleService {
 			
 		} catch (HandleException exception) {
 			// TODO Auto-generated catch-block stub.
+			log.error("Failed to get handle " + handleID + " " + exception.getMessage());
 			this.sendEmailRPI("[DCOHandleService] Resolve Handle error", exception.toString());
-			exception.printStackTrace();
 		}
 		
 		return values;
@@ -683,13 +678,15 @@ public class HandleService {
 			
             // make the request to the handle server
 			AbstractResponse response = resolver.processRequest(updateHandleRequest);
-			if(debug) printInfo("The response code is "+response.responseCode+" While success is "+AbstractMessage.RC_SUCCESS);
+			log.info("The response code is "+response.responseCode+" While success is "+AbstractMessage.RC_SUCCESS);
 			if(response.responseCode==AbstractMessage.RC_SUCCESS){
 				status = "successful";
 			}else{
+				log.error("Modify DCOID failed with response code " + response.responseCode);
 				this.sendEmailRPI("[DCOHandleService] Modify DCOID error", "Response code is"+response.responseCode);
 			}
 		}catch(Exception e){
+			log.error("Modify DCOID failed with exception " + e.getMessage());
 			sendEmailRPI("[DCOHandleSerivce] Modify DCOID error", e.toString());
 		}
 		return status;
@@ -722,7 +719,7 @@ public class HandleService {
 		}
 		
 		try{
-			if(debug) printInfo("The new id is "+newHandle.getId()+" And the new value is "+newHandle.getValue());
+			log.info("The new id is "+newHandle.getId()+" And the new value is "+newHandle.getValue());
 						
 			// Find if there is previously existed handle
 			HandleValue[] handleValue = this.getHandle(newHandle.getId());
@@ -734,6 +731,7 @@ public class HandleService {
 				status = this.modifyRedirectURL(newHandle, req);
 			}
 		}catch(Exception e){
+			log.error("Failed to update the handle " + newHandle.toString() + " " + e.getMessage());
 			sendEmailRPI("[DCOHandleService] update DCOID error", e.toString());
 		}
 		return status;
@@ -772,17 +770,19 @@ public class HandleService {
 			try {
 				response = resolver.processRequest(deleteRequest);
 			} catch (HandleException e) {
+				log.error("Failed to remove the handle " + handleRecord.toString() + " " + e.getMessage());
 				sendEmailRPI("[DCOHandleService] Delete request error",e.toString());
-				e.printStackTrace();
 			}
-			if(debug) printInfo("The response code is "+response.responseCode+" While success is "+AbstractMessage.RC_SUCCESS);
+			log.info("The response code is "+response.responseCode+" While success is "+AbstractMessage.RC_SUCCESS);
 			if(response.responseCode==AbstractMessage.RC_SUCCESS){
 				success = "done";
 			}else{
+				log.error("Failed to remove the handle " + handleRecord.toString() + " with status code " + response.responseCode);
 				sendEmailRPI("[DCOHandleService] failed to remove a dcoid","failed to remove"+handleRecord.getId());
 				success = "failed";
 			}
 		}catch(Exception e){
+			log.error("Failed to remove the handle " + handleRecord + " " + e.getMessage());
 			sendEmailRPI("[DCOHandleService] Remove DCOID", e.toString());
 		}
 		
