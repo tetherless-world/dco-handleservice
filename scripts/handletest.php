@@ -2,7 +2,7 @@
 
 include_once( "utils.php" ) ;
 
-$url = "http://localhost:8080/dcohandleservice/services/handles" ;
+$url = "http://deepcarbon.tw.rpi.edu:8080/dcohandleservice/services/handles" ;
 
 // create a new dcoid, point it to a dummy test page so I can compare,
 print( "CREATING\n" ) ;

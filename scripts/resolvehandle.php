@@ -2,7 +2,7 @@
 
 include_once( "utils.php" ) ;
 
-$url = "http://localhost:8080/dcohandleservice/services/handles" ;
+$url = "http://deepcarbon.net:8080/dcohandleservice/services/handles" ;
 
 if( $argc > 1 )
 {

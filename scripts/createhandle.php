@@ -10,7 +10,7 @@ if( $argc != 2 )
 
 $resolvesto = $argv[1] ;
 
-$url = "http://locahost:8080/dcohandleservice/services/handles" ;
+$url = "http://deepcarbon.tw.rpi.edu:8080/dcohandleservice/services/handles" ;
 
 print( "CREATING\n" ) ;
 $cmd = "$url/create" ;

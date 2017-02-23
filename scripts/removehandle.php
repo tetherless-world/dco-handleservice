@@ -27,6 +27,7 @@ else
 // remove the id
 foreach( $ids as $id )
 {
+    $id = trim( $id ) ;
     if( strlen( $id ) > 5 && substr( $id, 0, 5 ) == "11121" )
     {
         print( "REMOVING $id\n" ) ;

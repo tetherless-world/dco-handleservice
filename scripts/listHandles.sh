@@ -1,50 +1,17 @@
-#!/bin/ksh
+#!/bin/sh
 
-exdir="/usr/local/etc/hs/hsj"
-outdir="/opt/backups/handles"
-admpriv="/usr/share/tomcat6/work/dcohandleservice/admpriv.bin"
-
-if [ "$#" != 0 ]
-then
-    exdir=$1
-    outdir=$2
-    admpriv=$3
-fi
-ex="${exdir}/bin/hdl-list"
-
-if [ ! -x $ex ]
-then
-    echo "hdl-list app not found in ${exdir}"
-    exit 1
-fi
-
-if [ "$outdir" = "" -o ! -d $outdir ]
-then
-    echo "output directory \"${outdir}\" does not exist"
-    exit 1
-fi
-
-if [ "$admpriv" = "" -o ! -f $admpriv ]
-then
-    echo "password file \"${admpriv}\" not found"
-    exit 1
-fi
-
-TMP=${outdir}/tmp.list
-FILE=${outdir}/handles.list
-pass=${outdir}/pass
-out=${outdir}/result
+FILE=/opt/backups/handles/handles.list
+pass=/opt/backups/handles/pass
+out=/opt/backups/handles/result
 base="http://dx.deepcarbon.net/"
-all="no"
+all="yes"
 
 > $out
 
 start=$SECONDS
-${ex} -s 0.NA/11121 300 ${admpriv} 11121 < $pass > $TMP 2> /dev/null
+/usr/local/etc/hs/hsj/bin/hdl-list -s 0.NA/11121 300 /usr/share/tomcat6/work/dcohandleservice/admpriv.bin 11121 < $pass > $FILE 2> /dev/null
 duration=$(( SECONDS - start ))
 echo "hdl-list took $duration seconds" >> $out
-
-cat $TMP | grep "^11121" > $FILE
 
 handle=""
 redirect=""
